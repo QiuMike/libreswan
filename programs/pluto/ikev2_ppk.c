@@ -14,17 +14,8 @@
  * for more details.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-
 #include <libreswan.h>
 
-#include "sysdep.h"
-#include "constants.h"
 #include "lswlog.h"
 
 #include "defs.h"
@@ -35,12 +26,12 @@
 #include "keys.h" /* needs state.h */
 #include "demux.h"
 #include "packet.h"
+#include "ikev2_prf.h"
 
 #include "ike_alg.h"
 #include "crypt_symkey.h"
 #include "pluto_crypt.h"
 #include "ikev2.h"
-#include "ikev2_prf.h"
 #include "ikev2_ppk.h"
 
 bool ikev2_find_ppk(struct state *st, const chunk_t **ppk_m, const chunk_t **ppk_id_m, char **fn)
