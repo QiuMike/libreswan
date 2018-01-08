@@ -3712,6 +3712,17 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 				DBG(DBG_CONTROL, DBG_log("received ESP_TFC_PADDING_NOT_SUPPORTED"));
 				st->st_seen_no_tfc = TRUE;
 				break;
+			case v2N_MOBIKE_SUPPORTED:
+				st->st_seen_mobike = TRUE;
+				{
+					char *respond = "do not respond to it";
+					if (LIN(POLICY_MOBIKE, c->policy) &&
+							c->spd.that.host_type == KH_ANY)
+						respond = "sent notifiy in response";
+					DBG(DBG_CONTROL, DBG_log("received v2N_MOBIKE_SUPPORTED %s",
+								respond));
+				}
+				break;
 			case v2N_PPK_IDENTITY:
 				{
 					DBG(DBG_CONTROL, DBG_log("received PPK_IDENTITY"));
