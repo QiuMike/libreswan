@@ -4,6 +4,7 @@
  * Copyright (C) 2012 Avesh Agarwal <avagarwa@redhat.com>
  * Copyright (C) 1998-2002,2015  D. Hugh Redelmeier.
  * Copyright (C) 2016-2017 Andrew Cagney
+ * Copyright (C) 2017 Vukasin Karadzic <vukasin.karadzic@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -1619,6 +1620,35 @@ enum_names ikev1_notify_names = {
 	&ikev1_notify_status_names
 };
 
+/*
+static const char *const ikev2_ppk_id_type_name[] = {
+	"PPK_ID_OPAQUE",
+	"PPK_ID_FIXED",
+};
+
+static enum_names ikev2_ppk_id_type_names = {
+	PPK_ID_OPAQUE,
+	PPK_ID_FIXED,
+	ARRAY_REF(ikev2_ppk_id_type_name),
+	NULL,
+	NULL
+};
+*/
+
+static const char *const ikev2_notify_name_private[] = {
+	"v2N_USE_PPK",
+	"v2N_PPK_IDENTITY",
+	"v2N_NO_PPK_AUTH",
+};
+
+static enum_names ikev2_notify_names_private = {
+	v2N_USE_PPK,
+	v2N_NO_PPK_AUTH,
+	ARRAY_REF(ikev2_notify_name_private),
+	"v2N_", /* prefix */
+	NULL
+};
+
 /* http://www.iana.org/assignments/ikev2-parameters/ikev2-parameters.xml#ikev2-parameters-13 */
 static const char *const ikev2_notify_name_16384[] = {
 	"v2N_INITIAL_CONTACT",    /* 16384 */
@@ -1676,7 +1706,7 @@ static enum_names ikev2_notify_names_16384 = {
 	v2N_SIGNATURE_HASH_ALGORITHMS,
 	ARRAY_REF(ikev2_notify_name_16384),
 	"v2N_", /* prefix */
-	NULL
+	&ikev2_notify_names_private
 };
 
 static const char *const ikev2_notify_name[] = {
@@ -2030,6 +2060,7 @@ static const char *const ppk_name[] = {
 	"PPK_PSK",
 	"PPK_RSA",
 	"PPK_XAUTH",
+	"PPK_PPK",
 	"PPK_NULL",
 };
 

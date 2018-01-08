@@ -8,6 +8,7 @@
  * Copyright (C) 2013 Matt Rogers <mrogers@redhat.com>
  * Copyright (C) 2016-2017, Andrew Cagney
  * Copyright (C) 2017 Sahana Prasad <sahana.prasad07@gmail.com>
+ * Copyright (C) 2017 Vukasin Karadzic <vukasin.karadzic@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -920,6 +921,8 @@ enum sa_policy_bits {
 #define POLICY_IKE_FRAG_MASK	LRANGE(POLICY_IKE_FRAG_ALLOW_IX,POLICY_IKE_FRAG_FORCE_IX)
 	POLICY_NO_IKEPAD_IX,	/* pad ike packets to 4 bytes or not */
 	POLICY_MOBIKE_IX,	/* allow MOBIKE */
+	POLICY_PPK_ALLOW_IX,
+	POLICY_PPK_INSIST_IX,
 	POLICY_ESN_NO_IX,		/* send/accept ESNno */
 	POLICY_ESN_YES_IX,		/* send/accept ESNyes */
 #define POLICY_IX_LAST	POLICY_ESN_YES_IX
@@ -961,6 +964,8 @@ enum sa_policy_bits {
 #define POLICY_IKE_FRAG_FORCE	LELEM(POLICY_IKE_FRAG_FORCE_IX)
 #define POLICY_NO_IKEPAD	LELEM(POLICY_NO_IKEPAD_IX)	/* pad ike packets to 4 bytes or not */
 #define POLICY_MOBIKE		LELEM(POLICY_MOBIKE_IX)	/* allow MOBIKE */
+#define POLICY_PPK_ALLOW	LELEM(POLICY_PPK_ALLOW_IX)
+#define POLICY_PPK_INSIST	LELEM(POLICY_PPK_INSIST_IX)
 #define POLICY_ESN_NO		LELEM(POLICY_ESN_NO_IX)	/* accept or request ESNno */
 #define POLICY_ESN_YES		LELEM(POLICY_ESN_YES_IX)	/* accept or request ESNyes */
 #define POLICY_DECAP_DSCP	LELEM(POLICY_DECAP_DSCP_IX)	/* decap ToS/DSCP bits */
@@ -1022,6 +1027,7 @@ enum PrivateKeyKind {
 	PPK_PSK = 1,
 	PPK_RSA,
 	PPK_XAUTH,
+	PPK_PPK,
 	PPK_NULL,
 };
 

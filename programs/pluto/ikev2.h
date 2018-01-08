@@ -167,7 +167,9 @@ extern bool ikev2_calculate_rsa_sha1(struct state *st,
 extern bool ikev2_create_psk_auth(enum keyword_authby authby,
 				     struct state *st,
 				     unsigned char *idhash,
-				     pb_stream *a_pbs);
+				     pb_stream *a_pbs,
+				     bool calc_no_ppk_auth,
+				     chunk_t *no_ppk_auth);
 
 extern stf_status ikev2_verify_rsa_sha1(struct state *st,
 					enum original_role role,
@@ -178,6 +180,21 @@ extern stf_status ikev2_verify_psk_auth(enum keyword_authby authby,
 					struct state *st,
 					unsigned char *idhash,
 					pb_stream *sig_pbs);
+
+extern bool ikev2_find_ppk(struct state *st, const chunk_t **ppk,
+					     const chunk_t **ppk_id, char **fn);
+extern bool create_ppk_id_payload(const chunk_t *ppk_id, struct ppk_id_payload *payl);
+extern chunk_t create_unified_ppk_id(struct ppk_id_payload *payl);
+extern bool extract_ppk_id(pb_stream *pbs, struct ppk_id_payload *payl);
+extern const chunk_t *ikev2_find_ppk_by_id(const chunk_t *ppk_id, char **fn);
+extern bool ikev2_update_dynamic_ppk(char *fn);
+extern PK11SymKey *clone_key(PK11SymKey *key);
+extern stf_status ikev2_calc_no_ppk_auth(struct connection *c, struct state *st, 
+					 unsigned char *id_hash, chunk_t *no_ppk_auth);
+extern bool ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf,
+						PK11SymKey **sk_d,
+						PK11SymKey **sk_pi,
+						PK11SymKey **sk_pr);
 
 extern void ikev2_derive_child_keys(struct state *st,
 				    enum original_role role);

@@ -146,6 +146,10 @@ static void print(struct private_key_stuff *pks,
 		if (disclose)
 			printf("    xauth: \"%s\"\n", pskbuf);
 		break;
+
+	case PPK_PPK:
+		break;
+
 	case PPK_NULL:
 		/* can't happen but the compiler does not know that */
 		printf("NULL authentication -- cannot happen: %s\n", idb);

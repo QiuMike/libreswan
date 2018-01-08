@@ -12,7 +12,8 @@
  * Copyright (C) 2013 Tuomo Soini <tis@foobar.fi>
  * Copyright (C) 2014,2017 Antony Antony <antony@phenome.org>
  * Copyright (C) 2015-2017 Andrew Cagney <cagney@gnu.org>
- * Copyright (C) 2015 Paul Wouters <pwouters@redhat.com>
+ * Copyright (C) 2015-2017 Paul Wouters <pwouters@redhat.com>
+ * Copyright (C) 2017 Vukasin Karadzic <vukasin.karadzic@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -210,6 +211,11 @@ struct v2_ike_rfrags {
 struct v2_ike_tfrag {
 	struct v2_ike_tfrag *next;
 	chunk_t cipher;
+};
+
+struct ppk_id_payload {
+	enum ppk_id_type type;
+	const chunk_t *ppk_id;
 };
 
 /*
@@ -578,6 +584,14 @@ struct state {
 	chunk_t st_skey_chunk_SK_pi;
 	chunk_t st_skey_chunk_SK_pr;
 
+	struct ppk_id_payload ppk_id_p;
+	char *dynamic_ppk_fn;		/* Filename of dynamic PPK. If PPK is static this is NULL */
+
+	chunk_t no_ppk_auth;
+	PK11SymKey *st_sk_d_no_ppk;
+	PK11SymKey *st_sk_pi_no_ppk;
+	PK11SymKey *st_sk_pr_no_ppk;
+
 	/* connection included in AUTH */
 	struct traffic_selector st_ts_this;
 	struct traffic_selector st_ts_that;
@@ -622,6 +636,7 @@ struct state {
 	bool st_seen_fragvid;                   /* should really use st_seen_vendorid, but no one else is */
 	bool st_seen_hashnotify;		/* did we receive hash algo notification in IKE_INIT, then send in response as well */
 	bool st_seen_fragments;                 /* did we receive ike fragments from peer, if so use them in return as well */
+	bool st_seen_ppk;			/* did we receive PPK SUPPORT from peer */
 	bool st_seen_no_tfc;			/* did we receive ESP_TFC_PADDING_NOT_SUPPORTED */
 	bool st_seen_use_transport;		/* did we receive USE_TRANSPORT_MODE */
 	bool st_seen_mobike;			/* did we receive MOBIKE */
