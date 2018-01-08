@@ -70,6 +70,7 @@
 #include "ike_alg_sha2.h"
 #include "crypt_hash.h"
 #include "ikev2_ipseckey.h"
+#include "ikev2_ppk.h"
 #include "xauth.h"
 #include "crypt_dh.h"
 #include "ietf_constants.h"
