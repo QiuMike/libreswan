@@ -3039,25 +3039,25 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 
 		/* Check if we are configured to use PPK with responder */
 		/* PAUL: we should check connection for POLICY_PPK_ALLOW ? */
-		if (ikev2_find_ppk(pst, &ppk, &ppk_id, &pst->dynamic_ppk_fn)) {
+		if (ikev2_find_ppk(pst, &ppk, &ppk_id, &pst->st_dynamic_ppk_fn)) {
 			DBG(DBG_CONTROL, DBG_log("found PPK and PPK_ID"));
 
 			pst->st_sk_d_no_ppk = clone_key(pst->st_skey_d_nss);
 			pst->st_sk_pi_no_ppk = clone_key(pst->st_skey_pi_nss);
 			pst->st_sk_pr_no_ppk = clone_key(pst->st_skey_pr_nss);
 
-			create_ppk_id_payload(ppk_id, &pst->ppk_id_p);
-			DBG(DBG_CONTROL, DBG_log("ppk type: %d", (int) pst->ppk_id_p.type));
-			DBG(DBG_CONTROL, DBG_dump_chunk("ppk_id from payload:", *pst->ppk_id_p.ppk_id));
+			create_ppk_id_payload(ppk_id, &pst->st_ppk_id_p);
+			DBG(DBG_CONTROL, DBG_log("ppk type: %d", (int) pst->st_ppk_id_p.type));
+			DBG(DBG_CONTROL, DBG_dump_chunk("ppk_id from payload:", *pst->st_ppk_id_p.ppk_id));
 
 			ppk_recalculate(ppk, pst->st_oakley.ta_prf,
 						&pst->st_skey_d_nss,
 						&pst->st_skey_pi_nss,
 						&pst->st_skey_pr_nss);
-			if (pst->dynamic_ppk_fn != NULL) {
+			if (pst->st_dynamic_ppk_fn != NULL) {
 				DBG(DBG_CONTROL, DBG_log("PPK is dynamic, with OTP filename: %s",
-							pst->dynamic_ppk_fn));
-				if (!ikev2_update_dynamic_ppk(pst->dynamic_ppk_fn)) {
+							pst->st_dynamic_ppk_fn));
+				if (!ikev2_update_dynamic_ppk(pst->st_dynamic_ppk_fn)) {
 					DBG(DBG_CONTROL, DBG_log("OTP could not be updated"));
 				} else {
 					DBG(DBG_CONTROL, DBG_log("OTP updated"));
@@ -3363,7 +3363,7 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 		if (cc->send_no_esp_tfc)
 			notifies++;
 
-		if (LIN(POLICY_PPK_ALLOW, cc->policy) && pst->ppk_id_p.ppk_id != NULL)
+		if (LIN(POLICY_PPK_ALLOW, cc->policy) && pst->st_ppk_id_p.ppk_id != NULL)
 			notifies++; /* used for two payloads */
 
 		if (LIN(POLICY_MOBIKE, cc->policy))
@@ -3430,8 +3430,8 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 				return STF_INTERNAL_ERROR;
 		}
 
-		if (LIN(POLICY_PPK_ALLOW, cc->policy) && pst->ppk_id_p.ppk_id != NULL) {
-			chunk_t notify_data = create_unified_ppk_id(&pst->ppk_id_p);
+		if (LIN(POLICY_PPK_ALLOW, cc->policy) && pst->st_ppk_id_p.ppk_id != NULL) {
+			chunk_t notify_data = create_unified_ppk_id(&pst->st_ppk_id_p);
 
 			notifies--; /* used for 2 payloads */
 				if (!ship_v2N(ISAKMP_NEXT_v2N, ISAKMP_PAYLOAD_NONCRITICAL,
@@ -3725,7 +3725,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 					DBG(DBG_CONTROL, DBG_log("received PPK_IDENTITY"));
 					pb_stream pbs = ntfy->pbs;
 					const chunk_t *ppk = NULL;
-					struct ppk_id_payload *payl = &st->ppk_id_p;
+					struct ppk_id_payload *payl = &st->st_ppk_id_p;
 
 					/* code for duplicate payload? */
 
@@ -3734,7 +3734,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 						return STF_FATAL;
 					}
 
-					ppk = ikev2_find_ppk_by_id(payl->ppk_id, &st->dynamic_ppk_fn);
+					ppk = ikev2_find_ppk_by_id(payl->ppk_id, &st->st_dynamic_ppk_fn);
 					if (ppk != NULL)
 						found_ppk = TRUE;
 					else
@@ -3745,11 +3745,11 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 								&st->st_skey_d_nss,
 								&st->st_skey_pi_nss,
 								&st->st_skey_pr_nss);
-						st->used_ppk = TRUE;
-						if (st->dynamic_ppk_fn != NULL) {
+						st->st_used_ppk = TRUE;
+						if (st->st_dynamic_ppk_fn != NULL) {
 							DBG(DBG_CONTROL, DBG_log("PPK is dynamic, with OTP filename: %s",
-											st->dynamic_ppk_fn));
-							if (!ikev2_update_dynamic_ppk(st->dynamic_ppk_fn)) {
+											st->st_dynamic_ppk_fn));
+							if (!ikev2_update_dynamic_ppk(st->st_dynamic_ppk_fn)) {
 								DBG(DBG_CONTROL, DBG_log("OTP could not be updated"));
 							} else {
 								DBG(DBG_CONTROL, DBG_log("OTP updated"));
@@ -3793,7 +3793,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 		}
 	}
 
-	if (LIN(POLICY_PPK_INSIST, c->policy) && (st->ppk_id_p.ppk_id == NULL || !found_ppk)) {
+	if (LIN(POLICY_PPK_INSIST, c->policy) && (st->st_ppk_id_p.ppk_id == NULL || !found_ppk)) {
 		loglog(RC_LOG_SERIOUS,"Required PPK_ID not found and connection requires a valid PPK");
 		return STF_FATAL;
 	}
@@ -3827,7 +3827,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 	/* we didn't recalculate keys with PPK, but we found NO_PPK_AUTH
 	 * (meaning that initiator did use PPK) so we try to verify NO_PPK_AUTH.
 	 * Otherwise check AUTH normally */
-	if (!st->used_ppk && st->no_ppk_auth.ptr != NULL) {
+	if (!st->st_used_ppk && st->no_ppk_auth.ptr != NULL) {
 		DBG(DBG_CONTROL, DBG_log("We are going to try to use NO_PPK_AUTH."));
 		/* making a dummy pb_stream so we could pass it to v2_check_auth */
 		pb_stream pbs_no_ppk_auth;
@@ -3917,7 +3917,7 @@ static stf_status ikev2_parent_inI2outR2_auth_tail(struct msg_digest *md,
 			}
 		}
 
-		if (st->used_ppk) {
+		if (st->st_used_ppk) {
 			notifies++;
 		}
 
@@ -3981,7 +3981,7 @@ static stf_status ikev2_parent_inI2outR2_auth_tail(struct msg_digest *md,
 				return STF_INTERNAL_ERROR;
 		}
 
-		if (st->used_ppk) {
+		if (st->st_used_ppk) {
 			notifies--;
 			if (!ship_v2N((notifies != 0) ? ISAKMP_NEXT_v2N : ISAKMP_NEXT_v2IDr,
 					ISAKMP_PAYLOAD_NONCRITICAL,

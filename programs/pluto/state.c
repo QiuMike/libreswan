@@ -1158,8 +1158,8 @@ void delete_state(struct state *st)
 	pfreeany(st->st_seen_cfg_domains);
 	pfreeany(st->st_seen_cfg_banner);
 
-	pfreeany((st->ppk_id_p.ppk_id)->ptr);
-	freeanychunk(st->no_ppk_auth);
+	pfreeany((st->st_ppk_id_p.ppk_id)->ptr);
+	freeanychunk(st->st_no_ppk_auth);
 
 #ifdef HAVE_LABELED_IPSEC
 	pfreeany(st->sec_ctx);
