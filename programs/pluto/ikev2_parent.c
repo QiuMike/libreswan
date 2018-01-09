@@ -4556,12 +4556,11 @@ stf_status ikev2parent_inR2(struct state *st, struct msg_digest *md)
 	 * and we've come so far, it means that responder verified
 	 * NO_PPK_AUTH, so we should revert keys to NO_PPK version
 	 */
-	if (st->st_sk_d_no_ppk != NULL && !seen_ppk_identity) {
-		revert_to_no_ppk_keys(st->st_skey_d_nss, st->st_skey_pi_nss,
-			st->st_skey_pr_nss, st->st_sk_d_no_ppk,
-			st->st_sk_pi_no_ppk, st->st_sk_pr_no_ppk);
+	if (pst->st_sk_d_no_ppk != NULL && !seen_ppk_identity) {
+		revert_to_no_ppk_keys(pst->st_skey_d_nss, pst->st_skey_pi_nss,
+			pst->st_skey_pr_nss, pst->st_sk_d_no_ppk,
+			pst->st_sk_pi_no_ppk, pst->st_sk_pr_no_ppk);
 	}
-
 
 	{
 		struct hmac_ctx id_ctx;
