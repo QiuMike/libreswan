@@ -951,12 +951,11 @@ static stf_status ikev2_parent_outI1_common(struct msg_digest *md,
 
 	/* send NONCE */
 	{
-		int np = ISAKMP_NEXT_v2N;
 		struct ikev2_generic in;
 		pb_stream pb;
 
 		zero(&in);	/* OK: no pointer fields */
-		in.isag_np = np;
+		in.isag_np = ISAKMP_NEXT_v2N;
 		in.isag_critical = ISAKMP_PAYLOAD_NONCRITICAL;
 		if (DBGP(IMPAIR_SEND_BOGUS_PAYLOAD_FLAG)) {
 			libreswan_log(
@@ -973,9 +972,8 @@ static stf_status ikev2_parent_outI1_common(struct msg_digest *md,
 
 	/* Send fragmentation support notification */
 	if (c->policy & POLICY_IKE_FRAG_ALLOW) {
-		int np = ISAKMP_NEXT_v2N;
 
-		if (!ship_v2N(np, ISAKMP_PAYLOAD_NONCRITICAL,
+		if (!ship_v2N(ISAKMP_NEXT_v2N, ISAKMP_PAYLOAD_NONCRITICAL,
 			      PROTO_v2_RESERVED, &empty_chunk,
 			      v2N_IKEV2_FRAGMENTATION_SUPPORTED, &empty_chunk,
 			      &md->rbody))
@@ -983,10 +981,9 @@ static stf_status ikev2_parent_outI1_common(struct msg_digest *md,
 	}
 
 	/* Send USE_PPK Notify payload */
-	if ((c->policy & (POLICY_PPK_ALLOW | POLICY_PPK_INSIST))) {
-		int np = ISAKMP_NEXT_v2N;
+	if (LIN(POLICY_PPK_ALLOW, c->policy)) {
 
-		if (!ship_v2N(np, ISAKMP_PAYLOAD_NONCRITICAL,
+		if (!ship_v2N(ISAKMP_NEXT_v2N, ISAKMP_PAYLOAD_NONCRITICAL,
 				PROTO_v2_RESERVED, &empty_chunk,
 				v2N_USE_PPK, &empty_chunk,
 				&md->rbody))
@@ -3069,7 +3066,7 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 		} else {
 			DBG(DBG_CONTROL, DBG_log("failed to find PPK and PPK_ID"));
 			if (pc->policy & POLICY_PPK_INSIST) {
-				DBG(DBG_CONTROL, DBG_log("policy is insist, abort negotiation!"));
+				loglog(RC_LOG_SERIOUS,("connection requires PPK, but PPK_ID did not match any loaded PPK"));
 				return STF_FATAL;
 			}
 		}
@@ -3744,7 +3741,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 					else
 						found_ppk = FALSE;
 
-					if (found_ppk && (c->policy & (POLICY_PPK_ALLOW | POLICY_PPK_INSIST))) {
+					if (found_ppk && LIN(POLICY_PPK_ALLOW, c->policy)) {
 						keys_recalc_ppk = TRUE;
 						ppk_recalculate(ppk, st->st_oakley.ta_prf,
 								&st->st_skey_d_nss,
@@ -3759,6 +3756,8 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 								DBG(DBG_CONTROL, DBG_log("OTP updated"));
 							}
 						}
+					} else {
+						libreswan_log("ignored received PPK_IDENTITY - connection does not require PPK or PPKID not found");
 					}
 				}
 				break;
@@ -3766,14 +3765,19 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 				{
 					pb_stream pbs = ntfy->pbs;
 					size_t len = pbs_left(&pbs);
-					chunk_t no_ppk_auth = alloc_chunk(len, "NO_PPK_AUTH");
+					chunk_t no_ppk_auth;
 
-					if (!in_raw(&no_ppk_auth.ptr, len, &pbs, "NO_PPK_AUTH extract")) {
-						loglog(RC_LOG_SERIOUS, "Failed to extract NO_PPK_AUTH from Notify payload");
-						return STF_FATAL;
-					} else {
+					if (LIN(POLICY_PPK_ALLOW, c->policy)) {
+						no_ppk_auth = alloc_chunk(len, "NO_PPK_AUTH");
+
+						if (!in_raw(&no_ppk_auth.ptr, len, &pbs, "NO_PPK_AUTH extract")) {
+							loglog(RC_LOG_SERIOUS, "Failed to extract NO_PPK_AUTH from Notify payload");
+							return STF_FATAL;
+						}
 						DBG(DBG_CONTROL, DBG_dump_chunk("NO_PPK_AUTH:", no_ppk_auth));
 						st->no_ppk_auth = no_ppk_auth;
+					} else {
+						libreswan_log("ignored received NO_PPK_AUTH - connection does not require PPK");
 					}
 				}
 				break;
@@ -3785,7 +3789,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 		}
 	}
 
-	if ((st->ppk_id_p.ppk_id == NULL || !found_ppk) && (c->policy & POLICY_PPK_INSIST)) {
+	if (LIN(POLICY_PPK_INSIST, c->policy) && (st->ppk_id_p.ppk_id == NULL || !found_ppk)) {
 		loglog(RC_LOG_SERIOUS,"Required PPK_ID not found and connection requires a valid PPK");
 		return STF_FATAL;
 	}
