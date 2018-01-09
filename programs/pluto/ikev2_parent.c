@@ -3688,7 +3688,6 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 	struct connection const *c = st->st_connection;
 	unsigned char idhash_in[MAX_DIGEST_LEN];
 	bool found_ppk = FALSE;
-	bool keys_recalc_ppk = FALSE;
 
 	{
 		struct payload_digest *ntfy;
@@ -3742,11 +3741,11 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 						found_ppk = FALSE;
 
 					if (found_ppk && LIN(POLICY_PPK_ALLOW, c->policy)) {
-						keys_recalc_ppk = TRUE;
 						ppk_recalculate(ppk, st->st_oakley.ta_prf,
 								&st->st_skey_d_nss,
 								&st->st_skey_pi_nss,
 								&st->st_skey_pr_nss);
+						st->used_ppk = TRUE;
 						if (st->dynamic_ppk_fn != NULL) {
 							DBG(DBG_CONTROL, DBG_log("PPK is dynamic, with OTP filename: %s",
 											st->dynamic_ppk_fn));
@@ -3767,6 +3766,11 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 					size_t len = pbs_left(&pbs);
 					chunk_t no_ppk_auth;
 
+					if (LIN(POLICY_PPK_INSIST, c->policy)) {
+						DBG(DBG_CONTROL, DBG_log("Ignored NO_PPK_AUTH data - connection insists on PPK"));
+						break;
+					}
+
 					if (LIN(POLICY_PPK_ALLOW, c->policy)) {
 						no_ppk_auth = alloc_chunk(len, "NO_PPK_AUTH");
 
@@ -3777,7 +3781,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 						DBG(DBG_CONTROL, DBG_dump_chunk("NO_PPK_AUTH:", no_ppk_auth));
 						st->no_ppk_auth = no_ppk_auth;
 					} else {
-						libreswan_log("ignored received NO_PPK_AUTH - connection does not require PPK");
+						libreswan_log("ignored received NO_PPK_AUTH - connection does not allow PPK");
 					}
 				}
 				break;
@@ -3823,7 +3827,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 	/* we didn't recalculate keys with PPK, but we found NO_PPK_AUTH
 	 * (meaning that initiator did use PPK) so we try to verify NO_PPK_AUTH.
 	 * Otherwise check AUTH normally */
-	if (!keys_recalc_ppk && st->no_ppk_auth.ptr != NULL) {
+	if (!st->used_ppk && st->no_ppk_auth.ptr != NULL) {
 		DBG(DBG_CONTROL, DBG_log("We are going to try to use NO_PPK_AUTH."));
 		/* making a dummy pb_stream so we could pass it to v2_check_auth */
 		pb_stream pbs_no_ppk_auth;
@@ -3839,6 +3843,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 			send_v2_notification_from_state(st, v2N_AUTHENTICATION_FAILED, NULL);
 			return STF_FATAL;
 		}
+		DBG(DBG_CONTROL, DBG_log("NO_PPK_AUTH verified"));
 	} else {
 		if (!v2_check_auth(md->chain[ISAKMP_NEXT_v2AUTH]->payload.v2a.isaa_type,
 			st, ORIGINAL_RESPONDER, idhash_in, &md->chain[ISAKMP_NEXT_v2AUTH]->pbs,
@@ -3912,6 +3917,10 @@ static stf_status ikev2_parent_inI2outR2_auth_tail(struct msg_digest *md,
 			}
 		}
 
+		if (st->used_ppk) {
+			notifies++;
+		}
+
 		/* make sure HDR is at start of a clean buffer */
 		init_out_pbs(&reply_stream, reply_buffer, sizeof(reply_buffer),
 			 "reply packet");
@@ -3968,6 +3977,17 @@ static stf_status ikev2_parent_inI2outR2_auth_tail(struct msg_digest *md,
 					PROTO_v2_RESERVED,
 					&empty_chunk,
 					v2N_MOBIKE_SUPPORTED, &empty_chunk,
+					&e_pbs_cipher))
+				return STF_INTERNAL_ERROR;
+		}
+
+		if (st->used_ppk) {
+			notifies--;
+			if (!ship_v2N((notifies != 0) ? ISAKMP_NEXT_v2N : ISAKMP_NEXT_v2IDr,
+					ISAKMP_PAYLOAD_NONCRITICAL,
+					PROTO_v2_RESERVED,
+					&empty_chunk,
+					v2N_PPK_IDENTITY, &empty_chunk,
 					&e_pbs_cipher))
 				return STF_INTERNAL_ERROR;
 		}
@@ -4483,6 +4503,7 @@ stf_status ikev2parent_inR2(struct state *st, struct msg_digest *md)
 	struct payload_digest *ntfy;
 	struct state *pst = st;
 	bool got_transport = FALSE;
+	bool seen_ppk_identity = FALSE;
 
 	if (IS_CHILD_SA(st))
 		pst = state_with_serialno(st->st_clonedfrom);
@@ -4506,6 +4527,10 @@ stf_status ikev2parent_inR2(struct state *st, struct msg_digest *md)
 						"and sent" : "while it did not sent"));
 			st->st_seen_mobike = pst->st_seen_mobike = TRUE;
 			break;
+		case v2N_PPK_IDENTITY:
+			seen_ppk_identity = TRUE;
+			DBG(DBG_CONTROL, DBG_log("received v2N_PPK_IDENTITY, responder used PPK"));
+			break;
 		default:
 			DBG(DBG_CONTROLMORE, DBG_log("Received %s notify - ignored",
 				enum_name(&ikev2_notify_names,
@@ -4521,6 +4546,17 @@ stf_status ikev2parent_inR2(struct state *st, struct msg_digest *md)
 	enum keyword_authby that_authby = c->spd.that.authby;
 
 	passert(that_authby != AUTH_NEVER && that_authby != AUTH_UNSET);
+
+	/* if we didn't see PPK_IDENTITY (but we used PPK at the first place)
+	 * and we've come so far, it means that responder verified
+	 * NO_PPK_AUTH, so we should revert keys to NO_PPK version
+	 */
+	if (st->st_sk_d_no_ppk != NULL && !seen_ppk_identity) {
+		revert_to_no_ppk_keys(st->st_skey_d_nss, st->st_skey_pi_nss,
+			st->st_skey_pr_nss, st->st_sk_d_no_ppk,
+			st->st_sk_pi_no_ppk, st->st_sk_pr_no_ppk);
+	}
+
 
 	{
 		struct hmac_ctx id_ctx;
