@@ -2807,7 +2807,9 @@ static stf_status ikev2_send_auth(struct connection *c,
 
 	case IKEv2_AUTH_PSK:
 	case IKEv2_AUTH_NULL:
-		if (!ikev2_create_psk_auth(authby, pst, idhash_out, &a_pbs, FALSE, NULL)) {
+		if (!ikev2_create_psk_auth(authby, pst, idhash_out, &a_pbs,
+			FALSE /* store-only not set */,
+			NULL /* store-only chunk unused */)) {
 			loglog(RC_LOG_SERIOUS, "Failed to find our PreShared Key");
 			return STF_FATAL;
 		}
@@ -3690,6 +3692,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 	struct connection const *c = st->st_connection;
 	unsigned char idhash_in[MAX_DIGEST_LEN];
 	bool found_ppk = FALSE;
+	bool ppkid_seen = FALSE, noppk_seen = FALSE;
 
 	{
 		struct payload_digest *ntfy;
@@ -3725,12 +3728,16 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 				break;
 			case v2N_PPK_IDENTITY:
 				{
-					DBG(DBG_CONTROL, DBG_log("received PPK_IDENTITY"));
 					pb_stream pbs = ntfy->pbs;
 					const chunk_t *ppk = NULL;
 					struct ppk_id_payload *payl = &st->st_ppk_id_p;
 
-					/* code for duplicate payload? */
+					DBG(DBG_CONTROL, DBG_log("received PPK_IDENTITY"));
+					if (ppkid_seen) {
+						loglog(RC_LOG_SERIOUS, "Only one PPK_IDENTITY payload may be present");
+						return STF_FATAL;
+					}
+					ppkid_seen = TRUE;
 
 					if (!extract_ppk_id(&pbs, payl)) {
 						DBG(DBG_CONTROL, DBG_log("failed to extract PPK_ID from PPK_IDENTITY payload. Abort!"));
@@ -3740,8 +3747,6 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 					ppk = ikev2_find_ppk_by_id(payl->ppk_id, &st->st_dynamic_ppk_fn);
 					if (ppk != NULL)
 						found_ppk = TRUE;
-					else
-						found_ppk = FALSE;
 
 					if (found_ppk && LIN(POLICY_PPK_ALLOW, c->policy)) {
 						ppk_recalculate(ppk, st->st_oakley.ta_prf,
@@ -3771,6 +3776,13 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 					size_t len = pbs_left(&pbs);
 					chunk_t no_ppk_auth;
 
+					DBG(DBG_CONTROL, DBG_log("received NO_PPK_AUTH"));
+					if (noppk_seen) {
+						loglog(RC_LOG_SERIOUS, "Only one NO_PPK_AUTH payload may be present");
+						return STF_FATAL;
+					}
+					noppk_seen = TRUE;
+
 					if (LIN(POLICY_PPK_INSIST, c->policy)) {
 						DBG(DBG_CONTROL, DBG_log("Ignored NO_PPK_AUTH data - connection insists on PPK"));
 						break;
@@ -3798,8 +3810,12 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 		}
 	}
 
-	if (LIN(POLICY_PPK_INSIST, c->policy) && (st->st_ppk_id_p.ppk_id == NULL || !found_ppk)) {
-		loglog(RC_LOG_SERIOUS,"Required PPK_ID not found and connection requires a valid PPK");
+	/* if we found proper PPK ID, we should use that without fallback to no ppk */
+	if (found_ppk)
+		freeanychunk(st->st_no_ppk_auth);
+
+	if (!found_ppk && LIN(POLICY_PPK_INSIST, c->policy)) {
+		loglog(RC_LOG_SERIOUS,"Requested PPK_ID not found and connection requires a valid PPK");
 		return STF_FATAL;
 	}
 
@@ -3829,10 +3845,12 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 
 	passert(that_authby != AUTH_NEVER && that_authby != AUTH_UNSET);
 
-	/* we didn't recalculate keys with PPK, but we found NO_PPK_AUTH
-	 * (meaning that initiator did use PPK) so we try to verify NO_PPK_AUTH.
-	 * Otherwise check AUTH normally */
 	if (!st->st_used_ppk && st->st_no_ppk_auth.ptr != NULL) {
+		/*
+		 * we didn't recalculate keys with PPK, but we found NO_PPK_AUTH
+		 * (meaning that initiator did use PPK) so we try to verify NO_PPK_AUTH.
+		 * Otherwise check AUTH normally
+		 */
 		DBG(DBG_CONTROL, DBG_log("We are going to try to use NO_PPK_AUTH."));
 		/* making a dummy pb_stream so we could pass it to v2_check_auth */
 		pb_stream pbs_no_ppk_auth;
