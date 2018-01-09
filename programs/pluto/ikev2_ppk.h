@@ -33,6 +33,6 @@ extern void ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf,
 				PK11SymKey **sk_pi,
 				PK11SymKey **sk_pr);
 
-extern void revert_to_no_ppk_keys(PK11SymKey *sk_d, PK11SymKey *sk_pi,
-		PK11SymKey *sk_pr, PK11SymKey *sk_d_no_ppk,
+extern void revert_to_no_ppk_keys(PK11SymKey **sk_d, PK11SymKey **sk_pi,
+		PK11SymKey **sk_pr, PK11SymKey *sk_d_no_ppk,
 		PK11SymKey *sk_pi_no_ppk, PK11SymKey *sk_pr_no_ppk);

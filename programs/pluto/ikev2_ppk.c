@@ -193,16 +193,16 @@ void ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf_desc, PK11Sy
 
 }
 
-void revert_to_no_ppk_keys(PK11SymKey *sk_d, PK11SymKey *sk_pi,
-		 	   PK11SymKey *sk_pr, PK11SymKey *sk_d_no_ppk,
+void revert_to_no_ppk_keys(PK11SymKey **sk_d, PK11SymKey **sk_pi,
+		 	   PK11SymKey **sk_pr, PK11SymKey *sk_d_no_ppk,
 			   PK11SymKey *sk_pi_no_ppk, PK11SymKey *sk_pr_no_ppk)
 {
 	DBG(DBG_CONTROL, DBG_log("I'm going to release recalculated keys and replace them with old (no_ppk) ones."));
-	release_symkey(__func__, "sk_d", &sk_d);
-	release_symkey(__func__, "sk_pi", &sk_pi);
-	release_symkey(__func__, "sk_pr", &sk_pr);
+	release_symkey(__func__, "sk_d", sk_d);
+	release_symkey(__func__, "sk_pi", sk_pi);
+	release_symkey(__func__, "sk_pr", sk_pr);
 
-	sk_d = sk_d_no_ppk;
-	sk_pi = sk_pi_no_ppk;
-	sk_pr = sk_pr_no_ppk;
+	*sk_d = sk_d_no_ppk;
+	*sk_pi = sk_pi_no_ppk;
+	*sk_pr = sk_pr_no_ppk;
 }

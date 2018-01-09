@@ -4575,8 +4575,8 @@ stf_status ikev2parent_inR2(struct state *st, struct msg_digest *md)
 	 * NO_PPK_AUTH, so we should revert keys to NO_PPK version
 	 */
 	if (pst->st_sk_d_no_ppk != NULL && !seen_ppk_identity) {
-		revert_to_no_ppk_keys(pst->st_skey_d_nss, pst->st_skey_pi_nss,
-			pst->st_skey_pr_nss, pst->st_sk_d_no_ppk,
+		revert_to_no_ppk_keys(&pst->st_skey_d_nss, &pst->st_skey_pi_nss,
+			&pst->st_skey_pr_nss, pst->st_sk_d_no_ppk,
 			pst->st_sk_pi_no_ppk, pst->st_sk_pr_no_ppk);
 	}
 
