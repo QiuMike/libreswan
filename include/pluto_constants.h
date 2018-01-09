@@ -292,6 +292,8 @@ typedef enum {
 
 #define IKE_V2_OVERLAPPING_WINDOW_SIZE	1 /* our default for rfc 7296 # 2.3 */
 
+#define PPK_ID_MAXLEN 64 /* fairly arbitrary */
+
 /*
  * debugging settings: a set of selections for reporting These would
  * be more naturally situated in log.h, but they are shared with

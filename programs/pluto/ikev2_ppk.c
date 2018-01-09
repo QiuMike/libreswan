@@ -77,36 +77,47 @@ chunk_t create_unified_ppk_id(struct ppk_id_payload *payl)
 bool extract_ppk_id(pb_stream *pbs, struct ppk_id_payload *payl)
 {
 	size_t len = pbs_left(pbs);
-	u_char dst[64] = {0x00};	/* Why 64? I don't know */
+	u_char dst[PPK_ID_MAXLEN];
+	int idtype;
+	chunk_t ppk_id;
+
+	if (len > PPK_ID_MAXLEN) {
+		loglog(RC_LOG_SERIOUS, "PPK ID length is too big");
+		return FALSE;
+	}
+	if (len <= 1) {
+		loglog(RC_LOG_SERIOUS, "PPK ID data must be at least 1 byte (received %zd bytes including ppk type byte)",
+			len);
+		return FALSE;
+	}
 
 	if (!in_raw(dst, len, pbs, "Unified PPK_ID Payload")) {
+		loglog(RC_LOG_SERIOUS, "PPK ID data could not be read");
 		return FALSE;
-	} else {
-		u_char *type = dst;
-		DBG(DBG_CONTROL, DBG_log("received PPK_ID type: %d", (int) *type));
-		switch (*type) {
-		case PPK_ID_FIXED:
-			DBG(DBG_CONTROL, DBG_log("PPK_ID of type PPK_ID_FIXED."));
-			break;
-		case PPK_ID_OPAQUE:
-			DBG(DBG_CONTROL, DBG_log("PPK_ID of type PPK_ID_OPAQUE. Error! We don't support that yet."));
-			return FALSE;
-		default:
-			DBG(DBG_CONTROL, DBG_log("PPK_ID of unknown type. Error!"));
-			break;
-		}
-		if (len <= 1) {
-			DBG(DBG_CONTROL, DBG_log("Length of actual PPK_ID = 0. Error!"));
-			return FALSE;
-		} else {
-			chunk_t ppk_id;
-			clonetochunk(ppk_id, dst + 1, len - 1, "PPK_ID extract");
-			payl->ppk_id = &ppk_id;
-			DBG(DBG_PRIVATE, DBG_log("Extracted PPK_ID that we received:");
-					DBG_dump_chunk("PPK_ID", *payl->ppk_id));
-			return TRUE;
-		}
 	}
+
+	DBG(DBG_CONTROL, DBG_log("received PPK_ID type: %s",
+		enum_name(&ikev2_ppk_id_names, dst[0])));
+
+	idtype = (int)dst[0];
+	switch (idtype) {
+	case PPK_ID_FIXED:
+		DBG(DBG_CONTROL, DBG_log("PPK_ID of type PPK_ID_FIXED."));
+		break;
+
+	case PPK_ID_OPAQUE:
+	default:
+		loglog(RC_LOG_SERIOUS, "PPK_ID type %d(%s) not supported",
+			idtype, enum_name(&ikev2_ppk_id_names, idtype));
+		return FALSE;
+	}
+
+	/* clone ppk id data without ppk id type byte */
+	clonetochunk(ppk_id, dst + 1, len - 1, "PPK_ID data");
+	payl->ppk_id = &ppk_id;
+	DBG(DBG_CONTROL, DBG_dump_chunk("Extracted PPK_ID", *payl->ppk_id));
+
+	return TRUE;
 }
 
 const chunk_t *ikev2_find_ppk_by_id(const chunk_t *ppk_id, char **fn)
@@ -141,7 +152,7 @@ stf_status ikev2_calc_no_ppk_auth(struct connection *c, struct state *st, unsign
 	return STF_INTERNAL_ERROR;
 }
 
-bool ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf_desc, PK11SymKey **sk_d, PK11SymKey **sk_pi, PK11SymKey **sk_pr)
+void ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf_desc, PK11SymKey **sk_d, PK11SymKey **sk_pi, PK11SymKey **sk_pr)
 {
 	PK11SymKey *new_sk_pi, *new_sk_pr, *new_sk_d;
 	PK11SymKey *ppk_key = symkey_from_chunk("PPK Keying material", DBG_CRYPT, *ppk);
@@ -180,7 +191,6 @@ bool ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf_desc, PK11Sy
 		freeanychunk(chunk_sk_pr);
 	}
 
-	return TRUE;
 }
 
 void revert_to_no_ppk_keys(PK11SymKey *sk_d, PK11SymKey *sk_pi,

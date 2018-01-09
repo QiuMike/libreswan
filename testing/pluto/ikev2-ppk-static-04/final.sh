@@ -1,4 +1,5 @@
-ipsec look
+# east should fail PSK because it refuses PPK
+hostname | grep east > /dev/null && grep "PSK Authentication failed" /tmp/pluto.log
 : ==== cut ====
 ipsec auto --status
 : ==== tuc ====

@@ -2072,6 +2072,25 @@ enum_names ppk_names = {
 	NULL
 };
 
+/*
+ * IKEv2 PPK ID types - draft-ietf-ipsecme-qr-ikev2-01
+ */
+static const char *const ikev2_ppk_id_name[] = {
+	/* 0 - Reserved */
+	"PPK_ID_OPAQUE",
+	"PPK_ID_FIXED",
+	/* 3 - 127 Unassigned */
+	/* 128 - 255 Private Use */
+};
+
+enum_names ikev2_ppk_id_names = {
+	PPK_ID_OPAQUE,
+	PPK_ID_FIXED,
+	ARRAY_REF(ikev2_ppk_id_name),
+	"PPK_ID_", /* prefix */
+	NULL
+};
+
 /* magic SPI values (specific to Libreswan: see <libreswan.h>) */
 static const char *const spi_name[] = {
 	"%pass",
@@ -2548,6 +2567,7 @@ static const enum_names *en_checklist[] = {
 	&ikev2_trans_type_names,
 	&ikev2_trans_attr_descs,
 	&ppk_names,
+	&ikev2_ppk_id_names,
 };
 
 void check_enum_names(enum_names *checklist[], size_t tl)

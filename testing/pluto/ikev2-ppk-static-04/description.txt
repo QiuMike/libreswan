@@ -1,1 +1,2 @@
-Testing static PPK, west (initiator) proposes it and east never accepts it.
+Testing static PPK, west (initiator) insists but east refuses.
+The connection should fail.

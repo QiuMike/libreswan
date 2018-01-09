@@ -588,7 +588,7 @@ struct state {
 	char *st_dynamic_ppk_fn;		/* Filename of dynamic PPK. If PPK is static this is NULL */
 	bool st_used_ppk;			/* needed in IKE_AUTH response */
 
-	chunk_t no_ppk_auth;
+	chunk_t st_no_ppk_auth;
 	PK11SymKey *st_sk_d_no_ppk;
 	PK11SymKey *st_sk_pi_no_ppk;
 	PK11SymKey *st_sk_pr_no_ppk;

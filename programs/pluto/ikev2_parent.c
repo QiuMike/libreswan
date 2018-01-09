@@ -3058,11 +3058,13 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 				DBG(DBG_CONTROL, DBG_log("PPK is dynamic, with OTP filename: %s",
 							pst->st_dynamic_ppk_fn));
 				if (!ikev2_update_dynamic_ppk(pst->st_dynamic_ppk_fn)) {
-					DBG(DBG_CONTROL, DBG_log("OTP could not be updated"));
+					/* should we die? how do we prevent accidental re-use? */
+					loglog(RC_LOG_SERIOUS, "OTP could not be updated");
 				} else {
 					DBG(DBG_CONTROL, DBG_log("OTP updated"));
 				}
 			}
+			libreswan_log("PPK AUTH calculated as initiator");
 		} else {
 			DBG(DBG_CONTROL, DBG_log("failed to find PPK and PPK_ID"));
 			if (pc->policy & POLICY_PPK_INSIST) {
@@ -3441,11 +3443,11 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 					return STF_INTERNAL_ERROR;
 			freeanychunk(notify_data);
 
-			ikev2_calc_no_ppk_auth(cc, pst, idhash_npa, &pst->no_ppk_auth);
+			ikev2_calc_no_ppk_auth(cc, pst, idhash_npa, &pst->st_no_ppk_auth);
 			/* sending NO_PPK_AUTH Notify payload */
 			if (!ship_v2N(ISAKMP_NEXT_v2NONE, ISAKMP_PAYLOAD_NONCRITICAL,
 				PROTO_v2_RESERVED, &empty_chunk,
-				v2N_NO_PPK_AUTH, &pst->no_ppk_auth,
+				v2N_NO_PPK_AUTH, &pst->st_no_ppk_auth,
 				&e_pbs_cipher))
 					return STF_INTERNAL_ERROR;
 		}
@@ -3697,6 +3699,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 			case v2N_NAT_DETECTION_DESTINATION_IP:
 			case v2N_IKEV2_FRAGMENTATION_SUPPORTED:
 			case v2N_COOKIE:
+			case v2N_USE_PPK:
 				DBG(DBG_CONTROL, DBG_log("received %s which is not valid for current exchange",
 					enum_name(&ikev2_notify_names,
 						ntfy->payload.v2n.isan_type)));
@@ -3750,11 +3753,13 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 							DBG(DBG_CONTROL, DBG_log("PPK is dynamic, with OTP filename: %s",
 											st->st_dynamic_ppk_fn));
 							if (!ikev2_update_dynamic_ppk(st->st_dynamic_ppk_fn)) {
-								DBG(DBG_CONTROL, DBG_log("OTP could not be updated"));
+								/* should we die? how do we prevent accidental re-use? */
+								loglog(RC_LOG_SERIOUS, "OTP could not be updated");
 							} else {
 								DBG(DBG_CONTROL, DBG_log("OTP updated"));
 							}
 						}
+						libreswan_log("PPK AUTH calculated as responder");
 					} else {
 						libreswan_log("ignored received PPK_IDENTITY - connection does not require PPK or PPKID not found");
 					}
@@ -3774,12 +3779,12 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 					if (LIN(POLICY_PPK_ALLOW, c->policy)) {
 						no_ppk_auth = alloc_chunk(len, "NO_PPK_AUTH");
 
-						if (!in_raw(&no_ppk_auth.ptr, len, &pbs, "NO_PPK_AUTH extract")) {
-							loglog(RC_LOG_SERIOUS, "Failed to extract NO_PPK_AUTH from Notify payload");
+						if (!in_raw(no_ppk_auth.ptr, len, &pbs, "NO_PPK_AUTH extract")) {
+							loglog(RC_LOG_SERIOUS, "Failed to extract %zd bytes of NO_PPK_AUTH from Notify payload", len);
 							return STF_FATAL;
 						}
 						DBG(DBG_CONTROL, DBG_dump_chunk("NO_PPK_AUTH:", no_ppk_auth));
-						st->no_ppk_auth = no_ppk_auth;
+						st->st_no_ppk_auth = no_ppk_auth;
 					} else {
 						libreswan_log("ignored received NO_PPK_AUTH - connection does not allow PPK");
 					}
@@ -3827,13 +3832,13 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 	/* we didn't recalculate keys with PPK, but we found NO_PPK_AUTH
 	 * (meaning that initiator did use PPK) so we try to verify NO_PPK_AUTH.
 	 * Otherwise check AUTH normally */
-	if (!st->st_used_ppk && st->no_ppk_auth.ptr != NULL) {
+	if (!st->st_used_ppk && st->st_no_ppk_auth.ptr != NULL) {
 		DBG(DBG_CONTROL, DBG_log("We are going to try to use NO_PPK_AUTH."));
 		/* making a dummy pb_stream so we could pass it to v2_check_auth */
 		pb_stream pbs_no_ppk_auth;
 		pb_stream pbs = md->chain[ISAKMP_NEXT_v2AUTH]->pbs;
 		size_t len = pbs_room(&pbs);
-		init_pbs(&pbs_no_ppk_auth, st->no_ppk_auth.ptr, len, "pb_stream for verifying NO_PPK_AUTH");
+		init_pbs(&pbs_no_ppk_auth, st->st_no_ppk_auth.ptr, len, "pb_stream for verifying NO_PPK_AUTH");
 
 		if (!v2_check_auth(md->chain[ISAKMP_NEXT_v2AUTH]->payload.v2a.isaa_type,
 			st, ORIGINAL_RESPONDER, idhash_in, &pbs_no_ppk_auth,

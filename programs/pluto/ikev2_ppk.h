@@ -28,7 +28,7 @@ extern bool ikev2_update_dynamic_ppk(char *fn);
 extern PK11SymKey *clone_key(PK11SymKey *key);
 extern stf_status ikev2_calc_no_ppk_auth(struct connection *c, struct state *st,
 			unsigned char *id_hash, chunk_t *no_ppk_auth);
-extern bool ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf,
+extern void ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf,
 				PK11SymKey **sk_d,
 				PK11SymKey **sk_pi,
 				PK11SymKey **sk_pr);

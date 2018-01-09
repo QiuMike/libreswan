@@ -1,4 +1,5 @@
-ipsec look
+# confirm PPK was used
+grep "PPK AUTH calculated" /tmp/pluto.log
 : ==== cut ====
 ipsec auto --status
 : ==== tuc ====
