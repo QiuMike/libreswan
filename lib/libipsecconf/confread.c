@@ -1285,13 +1285,15 @@ static bool load_conn(
 		if (~(conn->policy & POLICY_IKEV1_ALLOW)) {
 			switch (conn->options[KBF_PPK]) {
 			case fo_propose:
+				ppk = POLICY_PPK_ALLOW;
+				break;
 
 			case fo_permit:
 				ppk = POLICY_PPK_ALLOW;
 				break;
 
 			case fo_insist:
-				ppk = POLICY_PPK_INSIST;
+				ppk = POLICY_PPK_ALLOW | POLICY_PPK_INSIST;
 				break;
 
 			case fo_never:
