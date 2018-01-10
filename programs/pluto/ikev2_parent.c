@@ -4573,6 +4573,13 @@ stf_status ikev2parent_inR2(struct state *st, struct msg_digest *md)
 
 	passert(that_authby != AUTH_NEVER && that_authby != AUTH_UNSET);
 
+	/* we didn't see PPK IDENTITY (meaning that responder doesn't have it),
+	 * but we insist on it */
+	if (!pst->st_seen_ppk_identity && LIN(POLICY_PPK_INSIST, c->policy)) {
+		send_v2_notification_from_state(st, v2N_AUTHENTICATION_FAILED, NULL);
+		return STF_FATAL;
+	}
+
 	/* if we didn't see PPK_IDENTITY (but we used PPK at the first place)
 	 * and we've come so far, it means that responder verified
 	 * NO_PPK_AUTH, so we should revert keys to NO_PPK version
