@@ -3041,9 +3041,9 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 			DBG(DBG_CONTROL, DBG_dump_chunk("ppk_id from payload:", pst->st_ppk_id_p.ppk_id));
 
 			ppk_recalculate(ppk, pst->st_oakley.ta_prf,
-						&pst->st_skey_d_nss,
-						&pst->st_skey_pi_nss,
-						&pst->st_skey_pr_nss);
+						&pst->st_sk_d_no_ppk,
+						&pst->st_sk_pi_no_ppk,
+						&pst->st_sk_pr_no_ppk);
 			if (pst->st_dynamic_ppk_fn != NULL) {
 				DBG(DBG_CONTROL, DBG_log("PPK is dynamic, with OTP filename: %s",
 							pst->st_dynamic_ppk_fn));
