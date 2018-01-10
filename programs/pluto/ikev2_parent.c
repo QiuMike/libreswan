@@ -3034,15 +3034,15 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 	if (!finish_dh_v2(pst, r, FALSE))
 		return STF_FAIL + v2N_INVALID_KE_PAYLOAD;
 
-	/* Check if responder wants to use PPK */
-	if (pst->st_seen_ppk) {
+	/* If we and responder are willing to use a PPK,
+	 * we need to generate NO_PPK_AUTH as well as PPK basaed AUTH payoad
+	 */
+	if (LIN(POLICY_PPK_ALLOW, pc->policy) && pst->st_seen_ppk) {
 		const chunk_t *ppk_id = NULL;
 		const chunk_t *ppk = NULL;
 
-		/* Check if we are configured to use PPK with responder */
-		/* PAUL: we should check connection for POLICY_PPK_ALLOW ? */
 		if (ikev2_find_ppk(pst, &ppk, &ppk_id, &pst->st_dynamic_ppk_fn)) {
-			DBG(DBG_CONTROL, DBG_log("found PPK and PPK_ID"));
+			DBG(DBG_CONTROL, DBG_log("found PPK and PPK_ID for our connection"));
 
 			pst->st_sk_d_no_ppk = clone_key(pst->st_skey_d_nss);
 			pst->st_sk_pi_no_ppk = clone_key(pst->st_skey_pi_nss);
@@ -3062,16 +3062,20 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 				if (!ikev2_update_dynamic_ppk(pst->st_dynamic_ppk_fn)) {
 					/* should we die? how do we prevent accidental re-use? */
 					loglog(RC_LOG_SERIOUS, "OTP could not be updated");
+					return STF_FATAL;
 				} else {
 					DBG(DBG_CONTROL, DBG_log("OTP updated"));
 				}
 			}
 			libreswan_log("PPK AUTH calculated as initiator");
 		} else {
-			DBG(DBG_CONTROL, DBG_log("failed to find PPK and PPK_ID"));
 			if (pc->policy & POLICY_PPK_INSIST) {
 				loglog(RC_LOG_SERIOUS,("connection requires PPK, but PPK_ID did not match any loaded PPK"));
 				return STF_FATAL;
+			} else {
+				libreswan_log("failed to find PPK and PPK_ID, continuing without PPK");
+				/* we should omit sending any PPK Identity, so we pretend we didn't see USE_PPK */
+				pst->st_seen_ppk = FALSE;
 			}
 		}
 	}
@@ -3367,11 +3371,11 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 		if (cc->send_no_esp_tfc)
 			notifies++;
 
-		if (LIN(POLICY_PPK_ALLOW, cc->policy) && pst->st_ppk_id_p.ppk_id != NULL)
-			notifies++; /* used for two payloads */
-
 		if (LIN(POLICY_MOBIKE, cc->policy))
 			notifies++;
+
+		if (pst->st_seen_ppk)
+			notifies++; /* used for two payloads */
 
 		/* code does not support AH + ESP, not recommend rfc8221 section-4 */
 		struct ipsec_proto_info *proto_info
@@ -3433,8 +3437,7 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 					&e_pbs_cipher))
 				return STF_INTERNAL_ERROR;
 		}
-
-		if (LIN(POLICY_PPK_ALLOW, cc->policy) && pst->st_ppk_id_p.ppk_id != NULL) {
+		if (pst->st_seen_ppk) {
 			chunk_t notify_data = create_unified_ppk_id(&pst->st_ppk_id_p);
 
 			notifies--; /* used for 2 payloads */
@@ -3446,7 +3449,6 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 			freeanychunk(notify_data);
 
 			ikev2_calc_no_ppk_auth(cc, pst, idhash_npa, &pst->st_no_ppk_auth);
-			/* sending NO_PPK_AUTH Notify payload */
 			if (!ship_v2N(ISAKMP_NEXT_v2NONE, ISAKMP_PAYLOAD_NONCRITICAL,
 				PROTO_v2_RESERVED, &empty_chunk,
 				v2N_NO_PPK_AUTH, &pst->st_no_ppk_auth,
@@ -4526,7 +4528,6 @@ stf_status ikev2parent_inR2(struct state *st, struct msg_digest *md)
 	struct payload_digest *ntfy;
 	struct state *pst = st;
 	bool got_transport = FALSE;
-	bool seen_ppk_identity = FALSE;
 
 	if (IS_CHILD_SA(st))
 		pst = state_with_serialno(st->st_clonedfrom);
@@ -4551,7 +4552,7 @@ stf_status ikev2parent_inR2(struct state *st, struct msg_digest *md)
 			st->st_seen_mobike = pst->st_seen_mobike = TRUE;
 			break;
 		case v2N_PPK_IDENTITY:
-			seen_ppk_identity = TRUE;
+			pst->st_seen_ppk_identity = TRUE;
 			DBG(DBG_CONTROL, DBG_log("received v2N_PPK_IDENTITY, responder used PPK"));
 			break;
 		default:
@@ -4574,7 +4575,7 @@ stf_status ikev2parent_inR2(struct state *st, struct msg_digest *md)
 	 * and we've come so far, it means that responder verified
 	 * NO_PPK_AUTH, so we should revert keys to NO_PPK version
 	 */
-	if (pst->st_sk_d_no_ppk != NULL && !seen_ppk_identity) {
+	if (pst->st_sk_d_no_ppk != NULL && !pst->st_seen_ppk_identity) {
 		revert_to_no_ppk_keys(&pst->st_skey_d_nss, &pst->st_skey_pi_nss,
 			&pst->st_skey_pr_nss, pst->st_sk_d_no_ppk,
 			pst->st_sk_pi_no_ppk, pst->st_sk_pr_no_ppk);
