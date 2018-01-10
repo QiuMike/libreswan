@@ -3041,9 +3041,12 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 			DBG(DBG_CONTROL, DBG_dump_chunk("ppk_id from payload:", pst->st_ppk_id_p.ppk_id));
 
 			ppk_recalculate(ppk, pst->st_oakley.ta_prf,
-						&pst->st_sk_d_no_ppk,
-						&pst->st_sk_pi_no_ppk,
-						&pst->st_sk_pr_no_ppk);
+						&pst->st_skey_d_nss,
+						&pst->st_skey_pi_nss,
+						&pst->st_skey_pr_nss,
+						pst->st_sk_d_no_ppk,
+						pst->st_sk_pi_no_ppk,
+						pst->st_sk_pr_no_ppk);
 			if (pst->st_dynamic_ppk_fn != NULL) {
 				DBG(DBG_CONTROL, DBG_log("PPK is dynamic, with OTP filename: %s",
 							pst->st_dynamic_ppk_fn));
@@ -3733,7 +3736,10 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 						ppk_recalculate(ppk, st->st_oakley.ta_prf,
 								&st->st_skey_d_nss,
 								&st->st_skey_pi_nss,
-								&st->st_skey_pr_nss);
+								&st->st_skey_pr_nss,
+								st->st_skey_d_nss,
+								st->st_skey_pi_nss,
+								st->st_skey_pr_nss);
 						st->st_used_ppk = TRUE;
 						if (st->st_dynamic_ppk_fn != NULL) {
 							DBG(DBG_CONTROL, DBG_log("PPK is dynamic, with OTP filename: %s",
