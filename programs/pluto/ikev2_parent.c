@@ -3729,6 +3729,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 					}
 
 					const chunk_t *ppk = ikev2_find_ppk_by_id(&payl->ppk_id, &st->st_dynamic_ppk_fn);
+					freeanychunk(payl->ppk_id);
 					if (ppk != NULL)
 						found_ppk = TRUE;
 
