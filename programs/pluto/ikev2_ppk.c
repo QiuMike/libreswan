@@ -34,10 +34,10 @@
 #include "ikev2.h"
 #include "ikev2_ppk.h"
 
-bool ikev2_find_ppk(struct state *st, const chunk_t **ppk_m, const chunk_t **ppk_id_m, char **fn)
+bool ikev2_find_ppk(struct state *st, chunk_t **ppk_m, chunk_t **ppk_id_m, char **fn)
 {
 	const struct connection *c = st->st_connection;
-	const chunk_t *ppk = get_ppk(c, ppk_id_m, fn);
+	chunk_t *ppk = get_ppk(c, ppk_id_m, fn);
 
 	if (ppk != NULL) {
 		*ppk_m = ppk;
@@ -49,10 +49,10 @@ bool ikev2_find_ppk(struct state *st, const chunk_t **ppk_m, const chunk_t **ppk
 
 /* used by initiator, to properly construct struct
  * from chunk_t we got from .secrets */
-bool create_ppk_id_payload(const chunk_t *ppk_id, struct ppk_id_payload *payl)
+bool create_ppk_id_payload(chunk_t *ppk_id, struct ppk_id_payload *payl)
 {
 	payl->type = PPK_ID_FIXED;	/* currently we support only this type */
-	payl->ppk_id = ppk_id;
+	payl->ppk_id = *ppk_id;
 	return TRUE;
 }
 
@@ -61,14 +61,11 @@ bool create_ppk_id_payload(const chunk_t *ppk_id, struct ppk_id_payload *payl)
 chunk_t create_unified_ppk_id(struct ppk_id_payload *payl)
 {
 	u_char type = PPK_ID_FIXED;	/* PPK_ID_FIXED */
-	u_int i;
-	const chunk_t *ppk_id = payl->ppk_id;
+	const chunk_t *ppk_id = &payl->ppk_id;
 
-	chunk_t unified =  alloc_chunk(ppk_id->len + 1, "Unified PPK_ID");
-	*unified.ptr = type;
-	for (i = 1; i < ppk_id->len + 1; i++) {
-		*(unified.ptr + i) = *((ppk_id->ptr) + (i - 1));
-	}
+	chunk_t unified = alloc_chunk(ppk_id->len + 1, "Unified PPK_ID");
+	unified.ptr[0] = type;
+	memcpy(&unified.ptr[1], ppk_id->ptr, ppk_id->len);
 	return unified;
 }
 
@@ -79,7 +76,6 @@ bool extract_ppk_id(pb_stream *pbs, struct ppk_id_payload *payl)
 	size_t len = pbs_left(pbs);
 	u_char dst[PPK_ID_MAXLEN];
 	int idtype;
-	chunk_t ppk_id;
 
 	if (len > PPK_ID_MAXLEN) {
 		loglog(RC_LOG_SERIOUS, "PPK ID length is too big");
@@ -113,9 +109,8 @@ bool extract_ppk_id(pb_stream *pbs, struct ppk_id_payload *payl)
 	}
 
 	/* clone ppk id data without ppk id type byte */
-	clonetochunk(ppk_id, dst + 1, len - 1, "PPK_ID data");
-	payl->ppk_id = &ppk_id;
-	DBG(DBG_CONTROL, DBG_dump_chunk("Extracted PPK_ID", *payl->ppk_id));
+	clonetochunk(payl->ppk_id, dst + 1, len - 1, "PPK_ID data");
+	DBG(DBG_CONTROL, DBG_dump_chunk("Extracted PPK_ID", payl->ppk_id));
 
 	return TRUE;
 }
@@ -157,19 +152,16 @@ void ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf_desc, PK11Sy
 	PK11SymKey *new_sk_pi, *new_sk_pr, *new_sk_d;
 	PK11SymKey *ppk_key = symkey_from_chunk("PPK Keying material", DBG_CRYPT, *ppk);
 
-	DBG(DBG_PRIVATE, DBG_log("Starting to recalculate SK_d, SK_pi, SK_pr");
+	DBG(DBG_CRYPT, DBG_log("Starting to recalculate SK_d, SK_pi, SK_pr");
 			 DBG_dump_chunk("PPK:", *ppk));
 
 	new_sk_d = ikev2_prfplus(prf_desc, ppk_key, *sk_d, prf_desc->prf_key_size);
-	release_symkey(__func__, "sk_d", sk_d);
 	*sk_d = new_sk_d;
 
 	new_sk_pi = ikev2_prfplus(prf_desc, ppk_key, *sk_pi, prf_desc->prf_key_size);
-	release_symkey(__func__, "sk_pi", sk_pi);
 	*sk_pi = new_sk_pi;
 
 	new_sk_pr = ikev2_prfplus(prf_desc, ppk_key, *sk_pr, prf_desc->prf_key_size);
-	release_symkey(__func__, "sk_pr", sk_pr);
 	*sk_pr = new_sk_pr;
 
 	if (DBGP(DBG_PRIVATE)) {
@@ -179,8 +171,8 @@ void ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf_desc, PK11Sy
 		chunk_t chunk_sk_pr = chunk_from_symkey("chunk_SK_pr", DBG_CRYPT, *sk_pr);
 
 		DBG(DBG_PRIVATE,
-		    DBG_log("Finished recalculating SK_d, SK_pi, SK_pr");
-		    DBG_log("ppk_recalculate pointers: SK_d-key@%p, SK_pi-key@%p, SK_pr-key@%p",
+		    DBG_log("PPK Finished recalculating SK_d, SK_pi, SK_pr");
+		    DBG_log("PPK Recalculated pointers: SK_d-key@%p, SK_pi-key@%p, SK_pr-key@%p",
 			     *sk_d, *sk_pi, *sk_pr);
 		    DBG_dump_chunk("new SK_d", chunk_sk_d);
 		    DBG_dump_chunk("new SK_pi", chunk_sk_pi);
@@ -191,18 +183,4 @@ void ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf_desc, PK11Sy
 		freeanychunk(chunk_sk_pr);
 	}
 
-}
-
-void revert_to_no_ppk_keys(PK11SymKey **sk_d, PK11SymKey **sk_pi,
-		 	   PK11SymKey **sk_pr, PK11SymKey *sk_d_no_ppk,
-			   PK11SymKey *sk_pi_no_ppk, PK11SymKey *sk_pr_no_ppk)
-{
-	DBG(DBG_CONTROL, DBG_log("I'm going to release recalculated keys and replace them with old (no_ppk) ones."));
-	release_symkey(__func__, "sk_d", sk_d);
-	release_symkey(__func__, "sk_pi", sk_pi);
-	release_symkey(__func__, "sk_pr", sk_pr);
-
-	*sk_d = sk_d_no_ppk;
-	*sk_pi = sk_pi_no_ppk;
-	*sk_pr = sk_pr_no_ppk;
 }

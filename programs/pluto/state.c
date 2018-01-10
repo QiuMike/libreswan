@@ -1158,7 +1158,7 @@ void delete_state(struct state *st)
 	pfreeany(st->st_seen_cfg_domains);
 	pfreeany(st->st_seen_cfg_banner);
 
-	//freeanychunk(st->st_ppk_id_p.ppk_id);
+	freeanychunk(st->st_ppk_id_p.ppk_id);
 	freeanychunk(st->st_no_ppk_auth);
 
 #ifdef HAVE_LABELED_IPSEC
@@ -1463,6 +1463,10 @@ struct state *duplicate_state(struct state *st, sa_t sa_type)
 		clone_nss_symkey_field(st_skey_pi_nss);
 		clone_nss_symkey_field(st_skey_pr_nss);
 		clone_nss_symkey_field(st_enc_key_nss);
+
+		clone_nss_symkey_field(st_sk_d_no_ppk);
+		clone_nss_symkey_field(st_sk_pi_no_ppk);
+		clone_nss_symkey_field(st_sk_pr_no_ppk);
 #   undef clone_nss_symkey_field
 
 #   define clone_any_chunk(field) { \

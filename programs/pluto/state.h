@@ -215,7 +215,7 @@ struct v2_ike_tfrag {
 
 struct ppk_id_payload {
 	enum ppk_id_type type;
-	const chunk_t *ppk_id;
+	chunk_t ppk_id;
 };
 
 /*

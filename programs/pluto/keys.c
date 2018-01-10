@@ -697,7 +697,7 @@ const chunk_t *get_psk(const struct connection *c)
  * Return ppk, and store ppk_id in **ppk_id.
  * Store OTP filename in fn if the PPK is dynamic.
  */
-const chunk_t *get_ppk(const struct connection *c, const chunk_t **ppk_id, char **fn)
+chunk_t *get_ppk(const struct connection *c, chunk_t **ppk_id, char **fn)
 {
 	struct secret *s = lsw_get_secret(c,
 					  &c->spd.this.id,
@@ -705,7 +705,7 @@ const chunk_t *get_ppk(const struct connection *c, const chunk_t **ppk_id, char 
 					  PPK_PPK, FALSE);
 
 	if (s != NULL) {
-		const struct private_key_stuff *pks = lsw_get_pks(s);
+		struct private_key_stuff *pks = lsw_get_pks(s);
 		*ppk_id = &pks->ppk_id;
 			DBG(DBG_PRIVATE, {
 			DBG_log("Found PPK");

@@ -82,6 +82,7 @@
 #include "ipsecconf/confread.h"
 #include "ipsecconf/addr_lookup.h"
 
+#include "crypt_symkey.h" /* for release_symkey */
 struct mobike {
 	ip_address remoteaddr;
 	u_int16_t remoteport;
@@ -3038,19 +3039,22 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 	 * we need to generate NO_PPK_AUTH as well as PPK basaed AUTH payoad
 	 */
 	if (LIN(POLICY_PPK_ALLOW, pc->policy) && pst->st_seen_ppk) {
-		const chunk_t *ppk_id = NULL;
-		const chunk_t *ppk = NULL;
+		chunk_t *ppk_id = NULL;
+		chunk_t *ppk = NULL;
 
 		if (ikev2_find_ppk(pst, &ppk, &ppk_id, &pst->st_dynamic_ppk_fn)) {
 			DBG(DBG_CONTROL, DBG_log("found PPK and PPK_ID for our connection"));
 
-			pst->st_sk_d_no_ppk = clone_key(pst->st_skey_d_nss);
-			pst->st_sk_pi_no_ppk = clone_key(pst->st_skey_pi_nss);
-			pst->st_sk_pr_no_ppk = clone_key(pst->st_skey_pr_nss);
+			pst->st_sk_d_no_ppk = pst->st_skey_d_nss;
+			pst->st_sk_pi_no_ppk = pst->st_skey_pi_nss;
+			pst->st_sk_pr_no_ppk = pst->st_skey_pr_nss;
+			pst->st_skey_d_nss = NULL;
+			pst->st_skey_pi_nss = NULL;
+			pst->st_skey_pr_nss = NULL;
 
 			create_ppk_id_payload(ppk_id, &pst->st_ppk_id_p);
 			DBG(DBG_CONTROL, DBG_log("ppk type: %d", (int) pst->st_ppk_id_p.type));
-			DBG(DBG_CONTROL, DBG_dump_chunk("ppk_id from payload:", *pst->st_ppk_id_p.ppk_id));
+			DBG(DBG_CONTROL, DBG_dump_chunk("ppk_id from payload:", pst->st_ppk_id_p.ppk_id));
 
 			ppk_recalculate(ppk, pst->st_oakley.ta_prf,
 						&pst->st_skey_d_nss,
@@ -3730,8 +3734,6 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 				break;
 			case v2N_PPK_IDENTITY:
 				{
-					pb_stream pbs = ntfy->pbs;
-					const chunk_t *ppk = NULL;
 					struct ppk_id_payload *payl = &st->st_ppk_id_p;
 
 					DBG(DBG_CONTROL, DBG_log("received PPK_IDENTITY"));
@@ -3741,12 +3743,12 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 					}
 					ppkid_seen = TRUE;
 
-					if (!extract_ppk_id(&pbs, payl)) {
+					if (!extract_ppk_id(&ntfy->pbs, payl)) {
 						DBG(DBG_CONTROL, DBG_log("failed to extract PPK_ID from PPK_IDENTITY payload. Abort!"));
 						return STF_FATAL;
 					}
 
-					ppk = ikev2_find_ppk_by_id(payl->ppk_id, &st->st_dynamic_ppk_fn);
+					const chunk_t *ppk = ikev2_find_ppk_by_id(&payl->ppk_id, &st->st_dynamic_ppk_fn);
 					if (ppk != NULL)
 						found_ppk = TRUE;
 
@@ -4576,9 +4578,14 @@ stf_status ikev2parent_inR2(struct state *st, struct msg_digest *md)
 	 * NO_PPK_AUTH, so we should revert keys to NO_PPK version
 	 */
 	if (pst->st_sk_d_no_ppk != NULL && !pst->st_seen_ppk_identity) {
-		revert_to_no_ppk_keys(&pst->st_skey_d_nss, &pst->st_skey_pi_nss,
-			&pst->st_skey_pr_nss, pst->st_sk_d_no_ppk,
-			pst->st_sk_pi_no_ppk, pst->st_sk_pr_no_ppk);
+		/* destroy the PPK based calculations */
+		release_symkey(__func__, "st_skey_d_nss",  &pst->st_skey_d_nss);
+		release_symkey(__func__, "st_skey_pi_nss", &pst->st_skey_pi_nss);
+		release_symkey(__func__, "st_skey_pr_nss", &pst->st_skey_pr_nss);
+
+		pst->st_skey_d_nss = pst->st_sk_d_no_ppk;
+		pst->st_skey_pi_nss = pst->st_sk_pi_no_ppk;
+		pst->st_skey_pr_nss = pst->st_sk_pr_no_ppk;
 	}
 
 	{

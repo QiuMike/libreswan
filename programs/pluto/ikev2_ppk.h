@@ -18,9 +18,9 @@
 #include "state.h"
 #include "packet.h"
 
-extern bool ikev2_find_ppk(struct state *st, const chunk_t **ppk,
-				const chunk_t **ppk_id, char **fn);
-extern bool create_ppk_id_payload(const chunk_t *ppk_id, struct ppk_id_payload *payl);
+extern bool ikev2_find_ppk(struct state *st, chunk_t **ppk_m,
+		chunk_t **ppk_id, char **fn);
+extern bool create_ppk_id_payload(chunk_t *ppk_id, struct ppk_id_payload *payl);
 extern chunk_t create_unified_ppk_id(struct ppk_id_payload *payl);
 extern bool extract_ppk_id(pb_stream *pbs, struct ppk_id_payload *payl);
 extern const chunk_t *ikev2_find_ppk_by_id(const chunk_t *ppk_id, char **fn);
@@ -32,7 +32,3 @@ extern void ppk_recalculate(const chunk_t *ppk, const struct prf_desc *prf,
 				PK11SymKey **sk_d,
 				PK11SymKey **sk_pi,
 				PK11SymKey **sk_pr);
-
-extern void revert_to_no_ppk_keys(PK11SymKey **sk_d, PK11SymKey **sk_pi,
-		PK11SymKey **sk_pr, PK11SymKey *sk_d_no_ppk,
-		PK11SymKey *sk_pi_no_ppk, PK11SymKey *sk_pr_no_ppk);
