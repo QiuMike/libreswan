@@ -889,7 +889,7 @@ static char *build_new_offset(int offset_len, int offset)
 		new[i] = '0';
 		i--;
 	}
-	DBG(DBG_CONTROL, DBG_log("Hey, I've built a new offset: %s", new));
+	DBG(DBG_CONTROL, DBG_log("built new offset: %s", new));
 	return new;
 }
 
