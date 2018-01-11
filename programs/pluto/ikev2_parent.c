@@ -3685,92 +3685,91 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 	unsigned char idhash_in[MAX_DIGEST_LEN];
 	bool found_ppk = FALSE;
 	bool ppkid_seen = FALSE, noppk_seen = FALSE;
+	struct payload_digest *ntfy;
 
-	{
-		struct payload_digest *ntfy;
-		for (ntfy = md->chain[ISAKMP_NEXT_v2N]; ntfy != NULL; ntfy = ntfy->next) {
-			switch (ntfy->payload.v2n.isan_type) {
-			case v2N_PPK_IDENTITY:
-				{
-					struct ppk_id_payload payl;
+	for (ntfy = md->chain[ISAKMP_NEXT_v2N]; ntfy != NULL; ntfy = ntfy->next) {
+		switch (ntfy->payload.v2n.isan_type) {
+		case v2N_PPK_IDENTITY:
+		{
+			struct ppk_id_payload payl;
 
-					DBG(DBG_CONTROL, DBG_log("received PPK_IDENTITY"));
-					if (ppkid_seen) {
-						loglog(RC_LOG_SERIOUS, "Only one PPK_IDENTITY payload may be present");
-						return STF_FATAL;
-					}
-					ppkid_seen = TRUE;
-
-					if (!extract_ppk_id(&ntfy->pbs, &payl)) {
-						DBG(DBG_CONTROL, DBG_log("failed to extract PPK_ID from PPK_IDENTITY payload. Abort!"));
-						return STF_FATAL;
-					}
-
-					const chunk_t *ppk = ikev2_find_ppk_by_id(&payl.ppk_id, &st->st_dynamic_ppk_fn);
-					freeanychunk(payl.ppk_id);
-					if (ppk != NULL)
-						found_ppk = TRUE;
-
-					if (found_ppk && LIN(POLICY_PPK_ALLOW, c->policy)) {
-						ppk_recalculate(ppk, st->st_oakley.ta_prf,
-								&st->st_skey_d_nss,
-								&st->st_skey_pi_nss,
-								&st->st_skey_pr_nss,
-								st->st_skey_d_nss,
-								st->st_skey_pi_nss,
-								st->st_skey_pr_nss);
-						st->st_used_ppk = TRUE;
-						if (st->st_dynamic_ppk_fn != NULL) {
-							DBG(DBG_CONTROL, DBG_log("PPK is dynamic, with OTP filename: %s",
-											st->st_dynamic_ppk_fn));
-							if (!ikev2_update_dynamic_ppk(st->st_dynamic_ppk_fn)) {
-								/* should we die? how do we prevent accidental re-use? */
-								loglog(RC_LOG_SERIOUS, "OTP could not be updated");
-							} else {
-								DBG(DBG_CONTROL, DBG_log("OTP updated"));
-							}
-						}
-						libreswan_log("PPK AUTH calculated as responder");
-					} else {
-						libreswan_log("ignored received PPK_IDENTITY - connection does not require PPK or PPKID not found");
-					}
-				}
-				break;
-			case v2N_NO_PPK_AUTH:
-				{
-					pb_stream pbs = ntfy->pbs;
-					size_t len = pbs_left(&pbs);
-					chunk_t no_ppk_auth;
-
-					DBG(DBG_CONTROL, DBG_log("received NO_PPK_AUTH"));
-					if (noppk_seen) {
-						loglog(RC_LOG_SERIOUS, "Only one NO_PPK_AUTH payload may be present");
-						return STF_FATAL;
-					}
-					noppk_seen = TRUE;
-
-					if (LIN(POLICY_PPK_INSIST, c->policy)) {
-						DBG(DBG_CONTROL, DBG_log("Ignored NO_PPK_AUTH data - connection insists on PPK"));
-						break;
-					}
-
-					if (LIN(POLICY_PPK_ALLOW, c->policy)) {
-						no_ppk_auth = alloc_chunk(len, "NO_PPK_AUTH");
-
-						if (!in_raw(no_ppk_auth.ptr, len, &pbs, "NO_PPK_AUTH extract")) {
-							loglog(RC_LOG_SERIOUS, "Failed to extract %zd bytes of NO_PPK_AUTH from Notify payload", len);
-							return STF_FATAL;
-						}
-						DBG(DBG_CONTROL, DBG_dump_chunk("NO_PPK_AUTH:", no_ppk_auth));
-						st->st_no_ppk_auth = no_ppk_auth;
-					} else {
-						libreswan_log("ignored received NO_PPK_AUTH - connection does not allow PPK");
-					}
-				}
-				break;
-			default:
-				/* everything handled elsewhere already */
+			DBG(DBG_CONTROL, DBG_log("received PPK_IDENTITY"));
+			if (ppkid_seen) {
+				loglog(RC_LOG_SERIOUS, "Only one PPK_IDENTITY payload may be present");
+				return STF_FATAL;
 			}
+			ppkid_seen = TRUE;
+
+			if (!extract_ppk_id(&ntfy->pbs, &payl)) {
+				DBG(DBG_CONTROL, DBG_log("failed to extract PPK_ID from PPK_IDENTITY payload. Abort!"));
+				return STF_FATAL;
+			}
+
+			const chunk_t *ppk = ikev2_find_ppk_by_id(&payl.ppk_id, &st->st_dynamic_ppk_fn);
+			freeanychunk(payl.ppk_id);
+			if (ppk != NULL)
+				found_ppk = TRUE;
+
+			if (found_ppk && LIN(POLICY_PPK_ALLOW, c->policy)) {
+				ppk_recalculate(ppk, st->st_oakley.ta_prf,
+						&st->st_skey_d_nss,
+						&st->st_skey_pi_nss,
+						&st->st_skey_pr_nss,
+						st->st_skey_d_nss,
+						st->st_skey_pi_nss,
+						st->st_skey_pr_nss);
+				st->st_used_ppk = TRUE;
+				if (st->st_dynamic_ppk_fn != NULL) {
+					DBG(DBG_CONTROL, DBG_log("PPK is dynamic, with OTP filename: %s",
+									st->st_dynamic_ppk_fn));
+					if (!ikev2_update_dynamic_ppk(st->st_dynamic_ppk_fn)) {
+						/* should we die? how do we prevent accidental re-use? */
+						loglog(RC_LOG_SERIOUS, "OTP could not be updated");
+					} else {
+						DBG(DBG_CONTROL, DBG_log("OTP updated"));
+					}
+				}
+				libreswan_log("PPK AUTH calculated as responder");
+			} else {
+				libreswan_log("ignored received PPK_IDENTITY - connection does not require PPK or PPKID not found");
+			}
+			break;
+		}
+
+		case v2N_NO_PPK_AUTH:
+		{
+			pb_stream pbs = ntfy->pbs;
+			size_t len = pbs_left(&pbs);
+			chunk_t no_ppk_auth;
+
+			DBG(DBG_CONTROL, DBG_log("received NO_PPK_AUTH"));
+			if (noppk_seen) {
+				loglog(RC_LOG_SERIOUS, "Only one NO_PPK_AUTH payload may be present");
+				return STF_FATAL;
+			}
+			noppk_seen = TRUE;
+
+			if (LIN(POLICY_PPK_INSIST, c->policy)) {
+				DBG(DBG_CONTROL, DBG_log("Ignored NO_PPK_AUTH data - connection insists on PPK"));
+				break;
+			}
+
+			if (LIN(POLICY_PPK_ALLOW, c->policy)) {
+				no_ppk_auth = alloc_chunk(len, "NO_PPK_AUTH");
+
+				if (!in_raw(no_ppk_auth.ptr, len, &pbs, "NO_PPK_AUTH extract")) {
+					loglog(RC_LOG_SERIOUS, "Failed to extract %zd bytes of NO_PPK_AUTH from Notify payload", len);
+					return STF_FATAL;
+				}
+				DBG(DBG_CONTROL, DBG_dump_chunk("NO_PPK_AUTH:", no_ppk_auth));
+				st->st_no_ppk_auth = no_ppk_auth;
+			} else {
+				libreswan_log("ignored received NO_PPK_AUTH - connection does not allow PPK");
+			}
+			break;
+		}
+		default:
+			/* everything handled elsewhere already */
 		}
 	}
 
