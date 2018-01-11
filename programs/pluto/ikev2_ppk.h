@@ -18,6 +18,11 @@
 #include "state.h"
 #include "packet.h"
 
+struct ppk_id_payload {
+	enum ppk_id_type type;
+	chunk_t ppk_id;
+};
+
 extern bool ikev2_find_ppk(struct state *st, chunk_t **ppk_m,
 		chunk_t **ppk_id, char **fn);
 extern bool create_ppk_id_payload(chunk_t *ppk_id, struct ppk_id_payload *payl);

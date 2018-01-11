@@ -213,11 +213,6 @@ struct v2_ike_tfrag {
 	chunk_t cipher;
 };
 
-struct ppk_id_payload {
-	enum ppk_id_type type;
-	chunk_t ppk_id;
-};
-
 /*
  * internal state that
  * should get copied by god... to the child SA state.
@@ -579,7 +574,6 @@ struct state {
 	chunk_t st_skey_chunk_SK_pi;
 	chunk_t st_skey_chunk_SK_pr;
 
-	struct ppk_id_payload st_ppk_id_p;
 	char *st_dynamic_ppk_fn;		/* Filename of dynamic PPK. If PPK is static this is NULL */
 	bool st_used_ppk;			/* needed in IKE_AUTH response */
 	bool st_seen_ppk_identity;		/* needed in IKE_AUTH responder */

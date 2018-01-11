@@ -3015,6 +3015,7 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 {
 	struct connection *const pc = pst->st_connection;	/* parent connection */
 	int send_cp_r = 0;
+	struct ppk_id_payload ppk_id_p;
 
 	if (!finish_dh_v2(pst, r, FALSE))
 		return STF_FAIL + v2N_INVALID_KE_PAYLOAD;
@@ -3036,9 +3037,9 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 			pst->st_skey_pi_nss = NULL;
 			pst->st_skey_pr_nss = NULL;
 
-			create_ppk_id_payload(ppk_id, &pst->st_ppk_id_p);
-			DBG(DBG_CONTROL, DBG_log("ppk type: %d", (int) pst->st_ppk_id_p.type));
-			DBG(DBG_CONTROL, DBG_dump_chunk("ppk_id from payload:", pst->st_ppk_id_p.ppk_id));
+			create_ppk_id_payload(ppk_id, &ppk_id_p);
+			DBG(DBG_CONTROL, DBG_log("ppk type: %d", (int) ppk_id_p.type));
+			DBG(DBG_CONTROL, DBG_dump_chunk("ppk_id from payload:", ppk_id_p.ppk_id));
 
 			ppk_recalculate(ppk, pst->st_oakley.ta_prf,
 						&pst->st_skey_d_nss,
@@ -3429,7 +3430,7 @@ static stf_status ikev2_parent_inR1outI2_tail(struct state *pst, struct msg_dige
 				return STF_INTERNAL_ERROR;
 		}
 		if (pst->st_seen_ppk) {
-			chunk_t notify_data = create_unified_ppk_id(&pst->st_ppk_id_p);
+			chunk_t notify_data = create_unified_ppk_id(&ppk_id_p);
 
 			notifies--; /* used for 2 payloads */
 				if (!ship_v2N(ISAKMP_NEXT_v2N, ISAKMP_PAYLOAD_NONCRITICAL,
@@ -3714,7 +3715,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 				break;
 			case v2N_PPK_IDENTITY:
 				{
-					struct ppk_id_payload *payl = &st->st_ppk_id_p;
+					struct ppk_id_payload payl;
 
 					DBG(DBG_CONTROL, DBG_log("received PPK_IDENTITY"));
 					if (ppkid_seen) {
@@ -3723,13 +3724,13 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 					}
 					ppkid_seen = TRUE;
 
-					if (!extract_ppk_id(&ntfy->pbs, payl)) {
+					if (!extract_ppk_id(&ntfy->pbs, &payl)) {
 						DBG(DBG_CONTROL, DBG_log("failed to extract PPK_ID from PPK_IDENTITY payload. Abort!"));
 						return STF_FATAL;
 					}
 
-					const chunk_t *ppk = ikev2_find_ppk_by_id(&payl->ppk_id, &st->st_dynamic_ppk_fn);
-					freeanychunk(payl->ppk_id);
+					const chunk_t *ppk = ikev2_find_ppk_by_id(&payl.ppk_id, &st->st_dynamic_ppk_fn);
+					freeanychunk(payl.ppk_id);
 					if (ppk != NULL)
 						found_ppk = TRUE;
 
