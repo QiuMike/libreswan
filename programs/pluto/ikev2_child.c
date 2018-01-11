@@ -1064,10 +1064,8 @@ stf_status ikev2_child_sa_respond(struct msg_digest *md,
 
 	}
 
-#if 0
 	if (role == ORIGINAL_RESPONDER) {
 		struct payload_digest *ntfy;
-
 		/* PAUL: this is weird, this is the SECOND time we go through these ! */
 		/* Process all NOTIFY payloads */
 		for (ntfy = md->chain[ISAKMP_NEXT_v2N]; ntfy != NULL; ntfy = ntfy->next) {
@@ -1076,7 +1074,7 @@ stf_status ikev2_child_sa_respond(struct msg_digest *md,
 			case v2N_NAT_DETECTION_DESTINATION_IP:
 			case v2N_IKEV2_FRAGMENTATION_SUPPORTED:
 			case v2N_COOKIE:
-			case v2N_USE_PPK
+			case v2N_USE_PPK:
 				DBG(DBG_CONTROL, DBG_log("received %s which is not valid for current exchange",
 					enum_name(&ikev2_notify_names,
 						ntfy->payload.v2n.isan_type)));
@@ -1110,7 +1108,6 @@ stf_status ikev2_child_sa_respond(struct msg_digest *md,
 			}
 		}
 	}
-#endif
 
 	{
 		bool send_ntfy = send_use_transport || c->send_no_esp_tfc;
