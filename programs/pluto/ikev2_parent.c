@@ -3735,7 +3735,6 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 			}
 			break;
 		}
-
 		case v2N_NO_PPK_AUTH:
 		{
 			pb_stream pbs = ntfy->pbs;
@@ -3769,7 +3768,10 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 			break;
 		}
 		default:
+		{
 			/* everything handled elsewhere already */
+			break;
+		}
 		}
 	}
 
