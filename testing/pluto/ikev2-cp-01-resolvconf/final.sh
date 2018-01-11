@@ -1,3 +1,4 @@
+ls -l /etc/resolv.conf
 : ==== cut ====
 ipsec auto --status
 : ==== tuc ====

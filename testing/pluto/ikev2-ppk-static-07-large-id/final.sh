@@ -1,10 +1,7 @@
-ipsec whack --shutdown
-grep leak /tmp/pluto.log
 # confirm PPK was used
 grep "PPK AUTH calculated" /tmp/pluto.log
-: ==== cut ====
-ipsec auto --status
-: ==== tuc ====
+ipsec whack --shutdown
+grep leak /tmp/pluto.log
 ../bin/check-for-core.sh
 if [ -f /sbin/ausearch ]; then ausearch -r -m avc -ts recent ; fi
 : ==== end ====
