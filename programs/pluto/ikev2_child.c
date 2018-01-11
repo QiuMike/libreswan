@@ -1066,7 +1066,7 @@ stf_status ikev2_child_sa_respond(struct msg_digest *md,
 
 	if (role == ORIGINAL_RESPONDER) {
 		struct payload_digest *ntfy;
-		/* PAUL: this is weird, this is the SECOND time we go through these ! */
+
 		/* Process all NOTIFY payloads */
 		for (ntfy = md->chain[ISAKMP_NEXT_v2N]; ntfy != NULL; ntfy = ntfy->next) {
 			switch (ntfy->payload.v2n.isan_type) {
