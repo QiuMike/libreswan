@@ -1418,6 +1418,7 @@ stf_status ikev2parent_inI1outR1(struct state *st, struct msg_digest *md)
 			case v2N_USE_TRANSPORT_MODE:
 			case v2N_PPK_IDENTITY:
 			case v2N_NO_PPK_AUTH:
+			case v2N_MOBIKE_SUPPORTED:
 				DBG(DBG_CONTROLMORE, DBG_log("Received unauthenticated %s notify in wrong exchange - ignored",
 					enum_name(&ikev2_notify_names,
 						ntfy->payload.v2n.isan_type)));
@@ -3898,9 +3899,10 @@ static stf_status ikev2_parent_inI2outR2_auth_tail(struct msg_digest *md,
 		return STF_FATAL;
 	}
 
-	/* good. now create child state */
-	/* note: as we will switch to child state, we force the parent to the
-	 * new state now
+	/*
+	 * Now create child state.
+	 * As we will switch to child state, force the parent to the
+	 * new state now.
 	 */
 
 	ikev2_isakamp_established(st, md->svm, STATE_PARENT_R2,
@@ -4166,10 +4168,6 @@ static stf_status ikev2_parent_inI2outR2_auth_tail(struct msg_digest *md,
 			return ret;
 		}
 	}
-
-	/* if the child failed, delete its state here - we sent the packet */
-	/* PAUL */
-	/* ??? what does that mean?  We cannot even reach here. */
 }
 
 static void ikev2_child_set_pfs(struct state *st)
