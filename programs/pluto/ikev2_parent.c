@@ -1413,9 +1413,11 @@ stf_status ikev2parent_inI1outR1(struct state *st, struct msg_digest *md)
 				}
 				break;
 
-			/* These are not supposed to appear here */
+			/* These are not supposed to appear in IKE_INIT */
 			case v2N_ESP_TFC_PADDING_NOT_SUPPORTED:
 			case v2N_USE_TRANSPORT_MODE:
+			case v2N_PPK_IDENTITY:
+			case v2N_NO_PPK_AUTH:
 				DBG(DBG_CONTROLMORE, DBG_log("Received unauthenticated %s notify in wrong exchange - ignored",
 					enum_name(&ikev2_notify_names,
 						ntfy->payload.v2n.isan_type)));
@@ -1901,6 +1903,8 @@ stf_status ikev2parent_inR1outI2(struct state *st, struct msg_digest *md)
 		case v2N_MOBIKE_SUPPORTED:
 		case v2N_USE_TRANSPORT_MODE:
 		case v2N_ESP_TFC_PADDING_NOT_SUPPORTED:
+		case v2N_PPK_IDENTITY:
+		case v2N_NO_PPK_AUTH:
 			DBG(DBG_CONTROL, DBG_log("%s: received %s which is not valid for IKE_INIT - ignoring it",
 				st->st_state_name,
 				enum_name(&ikev2_notify_names,
