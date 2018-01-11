@@ -3690,34 +3690,6 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 		struct payload_digest *ntfy;
 		for (ntfy = md->chain[ISAKMP_NEXT_v2N]; ntfy != NULL; ntfy = ntfy->next) {
 			switch (ntfy->payload.v2n.isan_type) {
-			case v2N_NAT_DETECTION_SOURCE_IP:
-			case v2N_NAT_DETECTION_DESTINATION_IP:
-			case v2N_IKEV2_FRAGMENTATION_SUPPORTED:
-			case v2N_COOKIE:
-			case v2N_USE_PPK:
-				DBG(DBG_CONTROL, DBG_log("received %s which is not valid for current exchange",
-					enum_name(&ikev2_notify_names,
-						ntfy->payload.v2n.isan_type)));
-				break;
-			case v2N_USE_TRANSPORT_MODE:
-				DBG(DBG_CONTROL, DBG_log("received USE_TRANSPORT_MODE"));
-				st->st_seen_use_transport = TRUE;
-				break;
-			case v2N_ESP_TFC_PADDING_NOT_SUPPORTED:
-				DBG(DBG_CONTROL, DBG_log("received ESP_TFC_PADDING_NOT_SUPPORTED"));
-				st->st_seen_no_tfc = TRUE;
-				break;
-			case v2N_MOBIKE_SUPPORTED:
-				st->st_seen_mobike = TRUE;
-				{
-					char *respond = "do not respond to it";
-					if (LIN(POLICY_MOBIKE, c->policy) &&
-							c->spd.that.host_type == KH_ANY)
-						respond = "sent notifiy in response";
-					DBG(DBG_CONTROL, DBG_log("received v2N_MOBIKE_SUPPORTED %s",
-								respond));
-				}
-				break;
 			case v2N_PPK_IDENTITY:
 				{
 					struct ppk_id_payload payl;
@@ -3797,9 +3769,7 @@ stf_status ikev2_parent_inI2outR2_id_tail(struct msg_digest *md)
 				}
 				break;
 			default:
-				DBG(DBG_CONTROL, DBG_log("received %s but ignoring it",
-					enum_name(&ikev2_notify_names,
-						ntfy->payload.v2n.isan_type)));
+				/* everything handled elsewhere already */
 			}
 		}
 	}
